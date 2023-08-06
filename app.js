@@ -6,6 +6,7 @@ const {
   ActivityType,
 } = require("discord.js");
 const { Web3 } = require("web3");
+const axios = require("axios");
 const express = require("express");
 const contractABI = require("./jackpotABI.json");
 const app = express();
@@ -49,17 +50,22 @@ async function start() {
 
   async function fetchJackpot() {
     console.log("[fetchJackpot]");
-    const dailyPot = await contract.methods.dailyPot().call();
-    const nextRound = Number(await contract.methods.nextRound().call());
-
-    const dailyPotFormatted = Number(dailyPot) / 1e18;
-    const endsIn = timestampToEndDate(nextRound);
 
     try {
+      const priceResponse = await axios.get(
+        "https://api.dexscreener.com/latest/dex/pairs/base/0xbb2a2d17685c3bc71562a87fa4f66f68999f59c7"
+      );
+      const ogrePrice = Number(priceResponse.data.pairs[0].priceUsd).toFixed(2);
+      const dailyPot = await contract.methods.dailyPot().call();
+      const nextRound = Number(await contract.methods.nextRound().call());
+
+      const dailyPotFormatted = Number(dailyPot) / 1e18;
+      const endsIn = timestampToEndDate(nextRound);
+
       client.user.setPresence({
         activities: [
           {
-            name: `Ends in ${endsIn}`,
+            name: `Jackpot ends in ${endsIn}`,
             type: ActivityType.Playing,
           },
         ],
@@ -69,7 +75,9 @@ async function start() {
       client.guilds.cache.forEach(async (guild) => {
         try {
           const member = await guild.members.fetch(client.user.id);
-          await member.setNickname(`${dailyPotFormatted.toFixed(4)} OGRE`);
+          await member.setNickname(
+            `POT: $${(ogrePrice * dailyPotFormatted).toFixed(2)}`
+          );
           console.log(`Updated nickname`);
         } catch (error) {
           console.error(
@@ -88,14 +96,13 @@ async function start() {
     const countdown = toDate - new Date().getTime() / 1000;
     const hours = Math.floor((countdown % (60 * 60 * 24)) / (60 * 60));
     const minutes = Math.floor((countdown % (60 * 60)) / 60);
-    const seconds = Math.floor(countdown % 60);
 
     if (countdown < 0) {
       return "Ended";
     } else if (hours > 1) {
-      return `${hours}h ${minutes}m ${seconds}s`;
+      return `${hours}h ${minutes}m`;
     }
-    return `${minutes}m ${seconds}s`;
+    return `${minutes}m`;
   }
 
   client.login(process.env.TOKEN);
