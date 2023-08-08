@@ -99,7 +99,7 @@ async function start() {
 
     if (countdown < 0) {
       return "Ended";
-    } else if (hours > 1) {
+    } else if (hours >= 1) {
       return `${hours}h ${minutes}m`;
     }
     return `${minutes}m`;
